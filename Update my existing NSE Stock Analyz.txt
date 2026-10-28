@@ -1,0 +1,39 @@
+Update my existing "NSE Stock Analyzer" app. Keep everything it already does (search a stock, technical + fundamental analysis, candlestick chart with RSI/MACD/MA50/MA200, watchlist). Add 7 new features as new pages/tabs in a top navigation bar. Use a clean, modern, responsive dark/light design with shadcn/ui, Tailwind and Recharts (all free). Show loading skeletons and friendly error messages. Add a small footer: "Educational purposes only. Not investment advice."
+
+BACKEND: a FastAPI service at https://YOUR_RENDER_URL (CORS is enabled). Put the URL in one constant (or NEXT_PUBLIC_API_URL env var). The free server may take up to ~50 seconds to wake up, so show "Waking up server, please wait..." if a request takes over 5 seconds. Users type NSE symbols without ".NS" (e.g. RELIANCE, TCS).
+
+NAVIGATION: Dashboard (existing), Market, Compare, Risk, Levels, Signal, Backtest, Portfolio.
+
+1. MARKET page — GET /market
+Response: { timestamp, market_mood, indices: [{ symbol, name, level, change, change_pct, month_change_pct, sparkline: number[] }] }
+Show 4 cards (Nifty 50, Sensex, Bank Nifty, India VIX) with level, daily change (green if positive, red if negative) and a small sparkline. Show a "Market mood" badge (calm / normal / nervous / fearful) based on market_mood. Auto-refresh every 5 minutes.
+
+2. COMPARE page — GET /compare?symbols=TCS,INFY,WIPRO&period=1y
+Input: 2–5 symbols (comma separated or tag input) and a period selector (3mo, 6mo, 1y, 2y, 5y).
+Response: { period, best_performer, summary: [{ symbol, total_return_pct, annual_volatility_pct, max_drawdown_pct }], correlation: { SYM: { SYM: number } }, normalised_series: [{ date, "TCS.NS": number, "INFY.NS": number, ... }] }
+Show a multi-line chart of normalised_series (all stocks start at 100), a summary table sorted by return, a trophy badge on best_performer, and a correlation heatmap table (colour scale from red -1 to green +1).
+
+3. RISK page — GET /risk/{symbol}?period=2y
+Response: { symbol, annualised_return_pct, annualised_volatility_pct, sharpe_ratio, sortino_ratio, max_drawdown_pct, var_95_daily_pct, cvar_95_daily_pct, beta_vs_nifty, correlation_vs_nifty, best_day_pct, worst_day_pct, risk_level ("low"|"moderate"|"high"), drawdown_series: [{ date, drawdown_pct }] }
+Show a risk-level badge (green/amber/red), a grid of metric cards with a tooltip explaining each metric in plain English (e.g. "Beta above 1 means the stock moves more than the Nifty"), and an area chart of drawdown_series (negative values, red fill).
+
+4. LEVELS page — GET /levels/{symbol}
+Response: { symbol, current_price, pivot_points: { pivot, r1, r2, r3, s1, s2, s3 }, nearest_resistance: number[], nearest_support: number[], high_52w, low_52w, atr_14, atr_pct_of_price, suggested_stop_loss_2x_atr, stochastic_k, stochastic_d, stochastic_state }
+Show a vertical "price ladder" visual: R3, R2, R1, Pivot, S1, S2, S3 with the current price marked between them. Below it show nearest support/resistance chips, a 52-week range bar with the current price marker, a card for ATR and suggested stop-loss, and a stochastic gauge (0–100) labelled overbought / neutral / oversold.
+
+5. SIGNAL page — GET /signal/{symbol}
+Response: { symbol, current_price, score, max_possible_score, rating ("Strong Buy"|"Buy"|"Hold"|"Sell"|"Strong Sell"), trend_strength, reasons: [{ points, reason }], disclaimer }
+Show a large rating badge (dark green Strong Buy, green Buy, grey Hold, orange Sell, red Strong Sell), a score meter from -7 to +7, and a list of reasons with +/- point chips (green for positive, red for negative). Show the disclaimer text clearly.
+
+6. BACKTEST page — GET /backtest/{symbol}?fast=50&slow=200&period=5y&cost_pct=0.1
+Inputs: symbol, fast MA (default 50), slow MA (default 200), period (2y, 5y, 10y, max), cost per trade % (default 0.1).
+Response: { symbol, verdict, parameters, strategy: { total_return_pct, cagr_pct, max_drawdown_pct, sharpe_ratio, number_of_trades, time_in_market_pct }, buy_and_hold: { total_return_pct, cagr_pct, max_drawdown_pct }, equity_curve: [{ date, strategy, buy_and_hold }], disclaimer }
+Show a two-line chart (strategy vs buy_and_hold, both starting at 100), a side-by-side comparison table of the two result sets, and the verdict as a highlighted banner. Validate that fast < slow before calling.
+
+7. PORTFOLIO page — POST /portfolio with JSON body
+Body: { "holdings": [ { "symbol": "RELIANCE", "quantity": 10, "buy_price": 2400 } ] }
+Let users add/remove holding rows (symbol, quantity, buy price) in an editable table, saved to localStorage, with an "Analyze portfolio" button (max 15 rows).
+Response: { summary: { total_invested, current_value, total_pnl, total_pnl_pct, best_performer, worst_performer, largest_position, concentration_warning }, holdings: [{ symbol, quantity, buy_price, current_price, invested, current_value, pnl, pnl_pct, weight_pct }], risk: { annual_volatility_pct, max_drawdown_pct, sharpe_ratio, var_95_daily_pct, avg_pairwise_correlation, diversification }, correlation: { SYM: { SYM: number } } | null, errors: [] }
+Show summary cards (invested, current value, P&L in green/red), a donut chart of weight_pct, a holdings table with coloured P&L, a risk section, a "Diversification: poor/moderate/good" badge, a warning banner if concentration_warning is true, and a correlation heatmap if present. Format all money in Indian Rupees with lakh/crore style grouping (en-IN).
+
+GENERAL: Handle null values by showing "—". Handle error responses (they return { detail: string }) by showing the detail in an alert. Make every page mobile friendly. Add a symbol autocomplete with common NSE stocks (RELIANCE, TCS, INFY, HDFCBANK, ICICIBANK, SBIN, ITC, WIPRO, LT, BHARTIARTL, TATAMOTORS, MARUTI, SUNPHARMA, ADANIENT, HINDUNILVR). Do not use any paid APIs or libraries.
